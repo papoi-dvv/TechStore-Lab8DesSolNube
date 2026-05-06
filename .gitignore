@@ -1,0 +1,48 @@
+# Node modules
+**/node_modules
+
+# Env files
+**/.env
+**/.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs
+*.log
+
+# Build output
+frontend/build
+frontend/dist
+backend/dist
+
+# Temporary files
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDE and editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# React/CRA specific
+frontend/.cache
+frontend/.pnp.*
+
+# Misc
+coverage/
+**/*.tgz
+
+# OS files
+*.tmp
+*.temp
+
+# Optional npm cache directory
+.npm
