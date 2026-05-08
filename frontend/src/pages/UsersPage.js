@@ -2,7 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { getUsers, getRoles, createUser, assignRole, removeRole, unlockUser, getStores, updateUser, updateUserPassword, activateUser, deactivateUser } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
-function UsersPage({ onNavigate }) {
+function roleBadge(roleName) {
+  if (roleName === 'Administrador') return <span key={roleName} className="badge badge-admin">{roleName}</span>;
+  if (roleName === 'Gerente')       return <span key={roleName} className="badge badge-gerente">{roleName}</span>;
+  if (roleName === 'Auditor')       return <span key={roleName} className="badge badge-auditor">{roleName}</span>;
+  return <span key={roleName} className="badge badge-empleado">{roleName}</span>;
+}
+
+function UsersPage() {
   const { token } = useAuth();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -14,286 +21,252 @@ function UsersPage({ onNavigate }) {
   const [editingUser, setEditingUser] = useState(null);
   const [passwordUser, setPasswordUser] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const loadData = useCallback(async () => {
     setError('');
     try {
-      const usersData = await getUsers(token);
-      const rolesData = await getRoles(token);
-      const storesData = await getStores(token).catch(() => ({ stores: [] }));
-      setUsers(usersData.users || []);
-      setRoles(rolesData.roles || []);
-      setStores(storesData.stores || []);
-    } catch (err) {
-      setError(err.message);
-    }
+      const [ud, rd, sd] = await Promise.all([
+        getUsers(token),
+        getRoles(token),
+        getStores(token).catch(() => ({ stores: [] })),
+      ]);
+      setUsers(ud.users || []);
+      setRoles(rd.roles || []);
+      setStores(sd.stores || []);
+    } catch (err) { setError(err.message); }
   }, [token]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const notify = (msg, isErr = false) => {
+    if (isErr) setError(msg); else setMessage(msg);
+  };
 
   const handleCreate = async e => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
+    e.preventDefault(); setError(''); setMessage('');
     try {
-      await createUser(token, {
-        email: form.email,
-        password: form.password,
-        nombre_completo: form.nombre_completo,
-        tienda_id: Number(form.tienda_id),
-        roles: form.roles,
-      });
-      setMessage('Usuario creado correctamente.');
+      await createUser(token, { email: form.email, password: form.password, nombre_completo: form.nombre_completo, tienda_id: Number(form.tienda_id), roles: form.roles });
+      notify('Usuario creado correctamente.');
       setForm({ email: '', password: '', nombre_completo: '', tienda_id: '1', roles: [] });
+      setShowCreate(false);
       loadData();
-    } catch (err) {
-      setError(err.message);
-    }
+    } catch (err) { notify(err.message, true); }
   };
 
-  const handleRoleChange = (roleName) => {
-    setForm(prev => {
-      const hasRole = prev.roles.includes(roleName);
-      return {
-        ...prev,
-        roles: hasRole ? prev.roles.filter(r => r !== roleName) : [...prev.roles, roleName],
-      };
-    });
+  const handleRoleChange = name => setForm(p => ({
+    ...p, roles: p.roles.includes(name) ? p.roles.filter(r => r !== name) : [...p.roles, name],
+  }));
+
+  const handleAssignRole  = async (uid, rid) => { try { await assignRole(token, uid, rid);  notify('Rol asignado.'); loadData(); } catch (e) { notify(e.message, true); } };
+  const handleRemoveRole  = async (uid, rid) => { try { await removeRole(token, uid, rid);  notify('Rol eliminado.'); loadData(); } catch (e) { notify(e.message, true); } };
+  const handleUnlock      = async uid => { try { await unlockUser(token, uid);    notify('Usuario desbloqueado.'); loadData(); } catch (e) { notify(e.message, true); } };
+  const handleDeactivate  = async uid => { try { await deactivateUser(token, uid); notify('Usuario desactivado.'); loadData(); } catch (e) { notify(e.message, true); } };
+  const handleActivate    = async uid => { try { await activateUser(token, uid);   notify('Usuario activado.'); loadData(); } catch (e) { notify(e.message, true); } };
+
+  const openEdit = u => {
+    setEditForm({ id: u.id, nombre_completo: u.nombre_completo, email: u.email, tienda_id: u.tienda_id || '' });
+    setEditingUser(u);
   };
 
-  const handleAssignRole = async (userId, roleId) => {
-    try {
-      await assignRole(token, userId, roleId);
-      setMessage('Rol asignado al usuario.');
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleRemoveRole = async (userId, roleId) => {
-    try {
-      await removeRole(token, userId, roleId);
-      setMessage('Rol eliminado del usuario.');
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleUnlockUser = async (userId) => {
-    try {
-      await unlockUser(token, userId);
-      setMessage('Usuario desbloqueado correctamente.');
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleDeactivate = async (userId) => {
-    try {
-      await deactivateUser(token, userId);
-      setMessage('Usuario desactivado.');
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleActivate = async (userId) => {
-    try {
-      await activateUser(token, userId);
-      setMessage('Usuario activado.');
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const openEdit = (user) => {
-    setEditForm({ id: user.id, nombre_completo: user.nombre_completo, email: user.email, tienda_id: user.tienda_id || '', roles: user.UserRoles?.map(ur => ur.Role?.nombre).filter(Boolean) || [] });
-    setEditingUser(user);
-  };
-
-  const handleEditSubmit = async (e) => {
+  const handleEditSubmit = async e => {
     e.preventDefault();
     try {
       await updateUser(token, editForm.id, { nombre_completo: editForm.nombre_completo, tienda_id: Number(editForm.tienda_id) });
-      setMessage('Usuario actualizado.');
-      setEditingUser(null);
-      setEditForm(null);
+      notify('Usuario actualizado.');
+      setEditingUser(null); setEditForm(null);
       loadData();
-    } catch (err) {
-      setError(err.message);
-    }
+    } catch (err) { notify(err.message, true); }
   };
 
-  const openPasswordModal = (user) => {
-    setPasswordUser({ id: user.id, nombre: user.nombre_completo, password: '' });
-  };
-
-  const handleChangePassword = async (e) => {
+  const handleChangePassword = async e => {
     e.preventDefault();
     try {
       await updateUserPassword(token, passwordUser.id, passwordUser.password);
-      setMessage('Contraseña actualizada.');
+      notify('Contraseña actualizada.');
       setPasswordUser(null);
-      loadData();
-    } catch (err) {
-      setError(err.message);
-    }
+    } catch (err) { notify(err.message, true); }
   };
 
-  const applyFilters = (u) => {
+  const applyFilters = u => {
     const q = filters.q.trim().toLowerCase();
     if (filters.tienda_id && String(u.tienda_id) !== String(filters.tienda_id)) return false;
-    if (filters.role && !(u.UserRoles||[]).some(ur => ur.Role && ur.Role.nombre === filters.role)) return false;
-    if (filters.status) {
-      if (filters.status === 'bloqueado' && !u.locked_until) return false;
-      if (filters.status === 'activo' && u.locked_until) return false;
-    }
-    if (q && !(`${u.nombre_completo} ${u.email}`).toLowerCase().includes(q)) return false;
+    if (filters.role && !(u.UserRoles || []).some(ur => ur.Role?.nombre === filters.role)) return false;
+    if (filters.status === 'bloqueado' && !u.locked_until) return false;
+    if (filters.status === 'activo' && u.locked_until) return false;
+    if (q && !`${u.nombre_completo} ${u.email}`.toLowerCase().includes(q)) return false;
     return true;
   };
 
+  const filtered = users.filter(applyFilters);
+
   return (
-    <div className="page-card">
-      <h2>Gestión de Usuarios</h2>
-      <button className="link-button" onClick={() => onNavigate('dashboard')}>Volver al panel</button>
-      <div className="section">
-        <h3>Usuarios</h3>
-        {error && <div className="error">{error}</div>}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <select value={filters.tienda_id} onChange={e => setFilters(f => ({ ...f, tienda_id: e.target.value }))}>
-            <option value="">Todas las tiendas</option>
-            {stores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
-          <select value={filters.role} onChange={e => setFilters(f => ({ ...f, role: e.target.value }))}>
-            <option value="">Todos los roles</option>
-            {roles.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
-          </select>
-          <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="bloqueado">Bloqueado</option>
-          </select>
-          <input placeholder="Buscar por nombre o correo" value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
+    <div>
+      {error   && <div className="alert alert-error">⚠ {error}</div>}
+      {message && <div className="alert alert-success">✓ {message}</div>}
+
+      <div className="section-header">
+        <div>
+          <div className="section-title">Gestión de Usuarios</div>
+          <div className="section-subtitle">{filtered.length} usuarios encontrados</div>
         </div>
-        <div className="users-grid">
-          {users.filter(applyFilters).map(user => (
-            <div key={user.id} className="user-card">
-              <strong>{user.nombre_completo}</strong>
-              <p>{user.email}</p>
-              <p>Tienda: {user.Store?.nombre || user.tienda_id}</p>
-              <p>Estado: {user.activo ? (user.locked_until ? 'Bloqueado' : 'Activo') : 'Inactivo'}</p>
-              <p>Roles: {user.UserRoles?.map(r => r.Role?.nombre).filter(Boolean).join(', ') || 'Sin roles'}</p>
-              {user.locked_until && (
-                <button className="danger" onClick={() => handleUnlockUser(user.id)}>Desbloquear</button>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button onClick={() => openEdit(user)}>Editar</button>
-                <button onClick={() => openPasswordModal(user)}>Cambiar contraseña</button>
-                {user.activo ? (
-                  <button className="danger" onClick={() => handleDeactivate(user.id)}>Desactivar</button>
-                ) : (
-                  <button onClick={() => handleActivate(user.id)}>Activar</button>
-                )}
+        <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(v => !v)}>
+          {showCreate ? '✕ Cancelar' : '+ Nuevo usuario'}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="filters-bar">
+        <input placeholder="Buscar por nombre o correo…" value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
+        <select value={filters.tienda_id} onChange={e => setFilters(f => ({ ...f, tienda_id: e.target.value }))}>
+          <option value="">Todas las tiendas</option>
+          {stores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+        </select>
+        <select value={filters.role} onChange={e => setFilters(f => ({ ...f, role: e.target.value }))}>
+          <option value="">Todos los roles</option>
+          {roles.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
+        </select>
+        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
+          <option value="">Todos los estados</option>
+          <option value="activo">Activo</option>
+          <option value="bloqueado">Bloqueado</option>
+        </select>
+      </div>
+
+      {/* User cards */}
+      <div className="users-grid">
+        {filtered.map(u => {
+          const userRoleNames = u.UserRoles?.map(r => r.Role?.nombre).filter(Boolean) || [];
+          const isLocked = !!u.locked_until;
+          return (
+            <div key={u.id} className="user-card">
+              <div className="user-card-header">
+                <div>
+                  <div className="user-card-name">{u.nombre_completo}</div>
+                  <div className="user-card-email">{u.email}</div>
+                </div>
+                <span className={`badge ${!u.activo ? 'badge-muted' : isLocked ? 'badge-danger' : 'badge-success'}`}>
+                  {!u.activo ? 'Inactivo' : isLocked ? '🔒 Bloqueado' : '● Activo'}
+                </span>
               </div>
-              <div className="role-actions">
+
+              <div className="user-card-meta">
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  🏪 {u.Store?.nombre || `Tienda #${u.tienda_id}`}
+                </span>
+              </div>
+
+              <div className="user-card-roles">
+                {userRoleNames.length > 0 ? userRoleNames.map(roleBadge) : <span className="badge badge-muted">Sin roles</span>}
+              </div>
+
+              <div className="user-card-actions">
+                <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}>Editar</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setPasswordUser({ id: u.id, nombre: u.nombre_completo, password: '' })}>Contraseña</button>
+                {isLocked && <button className="btn btn-warning btn-sm" onClick={() => handleUnlock(u.id)}>Desbloquear</button>}
+                {u.activo
+                  ? <button className="btn btn-danger btn-sm" onClick={() => handleDeactivate(u.id)}>Desactivar</button>
+                  : <button className="btn btn-success btn-sm" onClick={() => handleActivate(u.id)}>Activar</button>
+                }
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {roles.map(role => (
-                  <button key={role.id} onClick={() => handleAssignRole(user.id, role.id)}>{`Asignar ${role.nombre}`}</button>
+                  <button key={role.id} className="btn btn-secondary btn-sm" onClick={() => handleAssignRole(u.id, role.id)}>
+                    + {role.nombre}
+                  </button>
+                ))}
+                {u.UserRoles?.map(ra => (
+                  <button key={ra.id} className="btn btn-danger btn-sm" onClick={() => handleRemoveRole(u.id, ra.rol_id)}>
+                    − {ra.Role?.nombre || 'rol'}
+                  </button>
                 ))}
               </div>
-              {user.UserRoles?.length > 0 && (
-                <div className="role-actions" style={{ marginTop: 8 }}>
-                  {user.UserRoles.map((roleAssoc) => (
-                    <button key={roleAssoc.id} className="secondary" onClick={() => handleRemoveRole(user.id, roleAssoc.rol_id)}>
-                      {`Quitar ${roleAssoc.Role?.nombre || 'rol'}`}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-          ))}
-        </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <p style={{ color: 'var(--muted)', padding: '24px 0' }}>No se encontraron usuarios con esos filtros.</p>
+        )}
       </div>
-      <div className="section">
-        <h3>Crear usuario</h3>
-        <form onSubmit={handleCreate} className="vertical-form">
-          <label>
-            Nombre completo
-            <input value={form.nombre_completo} onChange={e => setForm({ ...form, nombre_completo: e.target.value })} required />
-          </label>
-          <label>
-            Email
-            <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} type="email" required />
-          </label>
-          <label>
-            Contraseña
-            <input value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} type="password" required />
-          </label>
-          <label>
-            Tienda
-            <select value={form.tienda_id} onChange={e => setForm({ ...form, tienda_id: e.target.value })}>
-              {stores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
-          </label>
-          <div className="role-checkboxes">
-            <p>Roles iniciales</p>
-            {roles.map(role => (
-              <label key={role.id}>
-                <input type="checkbox" checked={form.roles.includes(role.nombre)} onChange={() => handleRoleChange(role.nombre)} />
-                {role.nombre}
-              </label>
-            ))}
-          </div>
-          <button type="submit">Crear usuario</button>
-        </form>
-        {message && <div className="success">{message}</div>}
-      </div>
-      {editingUser && editForm && (
+
+      {/* Create modal */}
+      {showCreate && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Editar usuario #{editingUser.id}</h3>
-            <form onSubmit={handleEditSubmit} className="vertical-form">
-              <label>
-                Nombre completo
-                <input value={editForm.nombre_completo} onChange={e => setEditForm({ ...editForm, nombre_completo: e.target.value })} required />
-              </label>
-              <label>
-                Email
-                <input value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} type="email" required />
-              </label>
-              <label>
-                Tienda
-                <select value={String(editForm.tienda_id)} onChange={e => setEditForm({ ...editForm, tienda_id: e.target.value })}>
+            <div className="modal-header">
+              <h3>Nuevo usuario</h3>
+              <button className="modal-close" onClick={() => setShowCreate(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreate} className="vform">
+              <div className="form-group"><label>Nombre completo</label><input value={form.nombre_completo} onChange={e => setForm({ ...form, nombre_completo: e.target.value })} required /></div>
+              <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required /></div>
+              <div className="form-group"><label>Contraseña</label><input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /></div>
+              <div className="form-group">
+                <label>Tienda</label>
+                <select value={form.tienda_id} onChange={e => setForm({ ...form, tienda_id: e.target.value })}>
                   {stores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>
-              </label>
+              </div>
+              <div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Roles iniciales</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {roles.map(role => (
+                    <label key={role.id} className="checkbox-row">
+                      <input type="checkbox" checked={form.roles.includes(role.nombre)} onChange={() => handleRoleChange(role.nombre)} />
+                      {role.nombre}
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="modal-actions">
-                <button type="submit">Guardar</button>
-                <button type="button" onClick={() => { setEditingUser(null); setEditForm(null); }}>Cancelar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Crear usuario</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Edit modal */}
+      {editingUser && editForm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Editar usuario #{editingUser.id}</h3>
+              <button className="modal-close" onClick={() => { setEditingUser(null); setEditForm(null); }}>✕</button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="vform">
+              <div className="form-group"><label>Nombre completo</label><input value={editForm.nombre_completo} onChange={e => setEditForm({ ...editForm, nombre_completo: e.target.value })} required /></div>
+              <div className="form-group"><label>Email</label><input value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} type="email" required /></div>
+              <div className="form-group">
+                <label>Tienda</label>
+                <select value={String(editForm.tienda_id)} onChange={e => setEditForm({ ...editForm, tienda_id: e.target.value })}>
+                  {stores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => { setEditingUser(null); setEditForm(null); }}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password modal */}
       {passwordUser && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Cambiar contraseña — {passwordUser.nombre}</h3>
-            <form onSubmit={handleChangePassword} className="vertical-form">
-              <label>
-                Nueva contraseña
-                <input value={passwordUser.password} onChange={e => setPasswordUser({ ...passwordUser, password: e.target.value })} type="password" required />
-              </label>
+            <div className="modal-header">
+              <h3>Cambiar contraseña — {passwordUser.nombre}</h3>
+              <button className="modal-close" onClick={() => setPasswordUser(null)}>✕</button>
+            </div>
+            <form onSubmit={handleChangePassword} className="vform">
+              <div className="form-group"><label>Nueva contraseña</label><input type="password" value={passwordUser.password} onChange={e => setPasswordUser({ ...passwordUser, password: e.target.value })} required /></div>
               <div className="modal-actions">
-                <button type="submit">Actualizar</button>
-                <button type="button" onClick={() => setPasswordUser(null)}>Cancelar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setPasswordUser(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Actualizar</button>
               </div>
             </form>
           </div>

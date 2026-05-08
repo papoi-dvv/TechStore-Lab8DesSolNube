@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAudits, createAudit, updateAudit, deleteAudit } from '../api/api';
-import '../styles/AuditsPage.css';
 
-function AuditsPage({ onNavigate }) {
+const STATE_BADGE = {
+  completada:  'badge-success',
+  en_progreso: 'badge-warning',
+  pendiente:   'badge-muted',
+  rechazada:   'badge-danger',
+};
+
+function AuditsPage() {
   const { user, token } = useAuth();
   const [audits, setAudits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [filters, setFilters] = useState({ estado: '', tienda_id: '' });
+  const [filters, setFilters] = useState({ estado: '' });
   const [formData, setFormData] = useState({
     tienda_id: user?.tienda_id || '',
     observaciones: '',
@@ -20,153 +26,132 @@ function AuditsPage({ onNavigate }) {
 
   const userRoles = user?.roles || [];
   const isAuditor = userRoles.includes('Auditor');
-  const isAdmin = userRoles.includes('Administrador');
+  const isAdmin   = userRoles.includes('Administrador');
 
-  const metrics = isAdmin ? {
-    total: audits.length,
+  const metrics = {
+    total:       audits.length,
     completadas: audits.filter(a => a.estado === 'completada').length,
     en_progreso: audits.filter(a => a.estado === 'en_progreso').length,
-    totalIncidencias: audits.reduce((sum, a) => sum + (a.incidencias || 0), 0),
-    totalProductos: audits.reduce((sum, a) => sum + (a.productos_revisados || 0), 0),
-    porCalificacion: ['excelente', 'bueno', 'regular', 'malo'].map(c => ({
-      label: c,
-      count: audits.filter(a => a.calificacion === c).length,
-    })),
-  } : null;
+    incidencias: audits.reduce((s, a) => s + (a.incidencias || 0), 0),
+  };
 
-  useEffect(() => {
-    loadAudits();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { loadAudits(); }, []); // eslint-disable-line
 
   const loadAudits = async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const data = await getAudits(token);
       setAudits(data.audits || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  const handleCreateAudit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
+  const handleCreate = async e => {
+    e.preventDefault(); setError(''); setLoading(true);
     try {
-      const payload = {
+      const result = await createAudit(token, {
         tienda_id: parseInt(formData.tienda_id),
         observaciones: formData.observaciones,
         productos_revisados: parseInt(formData.productos_revisados),
         incidencias: parseInt(formData.incidencias),
         calificacion: formData.calificacion,
-      };
-
-      const result = await createAudit(token, payload);
-      setAudits([result.audit, ...audits]);
-      setFormData({
-        tienda_id: user?.tienda_id || '',
-        observaciones: '',
-        productos_revisados: 0,
-        incidencias: 0,
-        calificacion: '',
       });
+      setAudits([result.audit, ...audits]);
+      setFormData({ tienda_id: user?.tienda_id || '', observaciones: '', productos_revisados: 0, incidencias: 0, calificacion: '' });
       setShowForm(false);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  const handleUpdateStatus = async (auditId, newStatus) => {
+  const handleUpdateStatus = async (id, estado) => {
     try {
-      const result = await updateAudit(token, auditId, { estado: newStatus });
-      setAudits(audits.map(a => (a.id === auditId ? result.audit : a)));
-    } catch (err) {
-      setError(err.message);
-    }
+      const result = await updateAudit(token, id, { estado });
+      setAudits(audits.map(a => a.id === id ? result.audit : a));
+    } catch (err) { setError(err.message); }
   };
 
-  const handleDeleteAudit = async (auditId) => {
-    if (window.confirm('¿Eliminar esta auditoría?')) {
-      try {
-        await deleteAudit(token, auditId);
-        setAudits(audits.filter(a => a.id !== auditId));
-      } catch (err) {
-        setError(err.message);
-      }
-    }
+  const handleDelete = async id => {
+    if (!window.confirm('¿Eliminar esta auditoría?')) return;
+    try {
+      await deleteAudit(token, id);
+      setAudits(audits.filter(a => a.id !== id));
+    } catch (err) { setError(err.message); }
   };
 
-  const getStateColor = (estado) => {
-    switch (estado) {
-      case 'completada': return '#10b981';
-      case 'en_progreso': return '#f59e0b';
-      case 'pendiente': return '#6b7280';
-      case 'rechazada': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+  const filtered = audits.filter(a => !filters.estado || a.estado === filters.estado);
 
   return (
-    <div className="page-card audits-page">
-      <div className="page-header">
+    <div>
+      {error && <div className="alert alert-error">⚠ {error}</div>}
+
+      <div className="section-header">
         <div>
-          <h2>📋 Auditorías</h2>
+          <div className="section-title">Auditorías</div>
+          <div className="section-subtitle">Control de calidad e inspecciones de sucursales</div>
         </div>
-        <button className="link-button" onClick={() => onNavigate('dashboard')}>Volver al panel</button>
+        {isAuditor && (
+          <button className="btn btn-primary btn-sm" onClick={() => setShowForm(v => !v)}>
+            {showForm ? '✕ Cancelar' : '+ Nueva auditoría'}
+          </button>
+        )}
       </div>
 
-      {isAuditor && (
-        <div style={{ marginBottom: 20 }}>
-          <button onClick={() => setShowForm(!showForm)} className="btn-primary">
-            {showForm ? 'Cancelar' : '+ Nueva Auditoría'}
-          </button>
+      {/* Metrics */}
+      <div className="stats-grid" style={{ marginBottom: 20 }}>
+        {[
+          { label: 'Total', value: metrics.total, icon: '📋' },
+          { label: 'Completadas', value: metrics.completadas, icon: '✅' },
+          { label: 'En progreso', value: metrics.en_progreso, icon: '⏳' },
+          { label: 'Incidencias', value: metrics.incidencias, icon: '⚠' },
+        ].map(m => (
+          <div key={m.label} className="stat-card">
+            <span className="stat-card-icon">{m.icon}</span>
+            <span className="stat-card-value">{m.value}</span>
+            <span className="stat-card-label">{m.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Create form */}
+      {showForm && isAuditor && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header"><div className="card-title">Nueva auditoría</div></div>
+          <form onSubmit={handleCreate} className="vform">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Productos revisados</label>
+                <input type="number" min="0" value={formData.productos_revisados} onChange={e => setFormData({ ...formData, productos_revisados: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Incidencias</label>
+                <input type="number" min="0" value={formData.incidencias} onChange={e => setFormData({ ...formData, incidencias: e.target.value })} />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Calificación</label>
+                <select value={formData.calificacion} onChange={e => setFormData({ ...formData, calificacion: e.target.value })}>
+                  <option value="">Sin calificación</option>
+                  <option value="excelente">Excelente</option>
+                  <option value="bueno">Bueno</option>
+                  <option value="regular">Regular</option>
+                  <option value="malo">Malo</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Observaciones</label>
+              <textarea value={formData.observaciones} onChange={e => setFormData({ ...formData, observaciones: e.target.value })} placeholder="Detalles de la auditoría…" />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={loading}>{loading ? 'Creando…' : 'Crear auditoría'}</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowForm(false)}>Cancelar</button>
+            </div>
+          </form>
         </div>
       )}
 
-      {isAdmin && metrics && (
-        <div style={{ marginBottom: 24, padding: '16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          <h3 style={{ marginTop: 0, marginBottom: 12 }}>📊 Métricas Generales</h3>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
-            <div style={{ background: '#fff', padding: '12px 20px', borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{metrics.total}</div>
-              <div style={{ color: '#6b7280', fontSize: 13 }}>Total auditorías</div>
-            </div>
-            <div style={{ background: '#fff', padding: '12px 20px', borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#10b981' }}>{metrics.completadas}</div>
-              <div style={{ color: '#6b7280', fontSize: 13 }}>Completadas</div>
-            </div>
-            <div style={{ background: '#fff', padding: '12px 20px', borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{metrics.en_progreso}</div>
-              <div style={{ color: '#6b7280', fontSize: 13 }}>En progreso</div>
-            </div>
-            <div style={{ background: '#fff', padding: '12px 20px', borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#ef4444' }}>{metrics.totalIncidencias}</div>
-              <div style={{ color: '#6b7280', fontSize: 13 }}>Total incidencias</div>
-            </div>
-            <div style={{ background: '#fff', padding: '12px 20px', borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{metrics.totalProductos}</div>
-              <div style={{ color: '#6b7280', fontSize: 13 }}>Productos revisados</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {metrics.porCalificacion.map(({ label, count }) => (
-              <span key={label} style={{ background: '#e2e8f0', borderRadius: 12, padding: '4px 12px', fontSize: 13 }}>
-                {label}: <strong>{count}</strong>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="filters-section" style={{ marginBottom: 20, display: 'flex', gap: 12 }}>
-        <select value={filters.estado} onChange={(e) => setFilters({ ...filters, estado: e.target.value })}>
+      {/* Filter */}
+      <div className="filters-bar">
+        <select value={filters.estado} onChange={e => setFilters({ estado: e.target.value })} style={{ maxWidth: 200 }}>
           <option value="">Todos los estados</option>
           <option value="pendiente">Pendiente</option>
           <option value="en_progreso">En progreso</option>
@@ -175,128 +160,39 @@ function AuditsPage({ onNavigate }) {
         </select>
       </div>
 
-      {showForm && isAuditor && (
-        <div className="audit-form">
-          <h3>Crear Nueva Auditoría</h3>
-          <form onSubmit={handleCreateAudit}>
-            <label>
-              Productos Revisados
-              <input
-                type="number"
-                min="0"
-                value={formData.productos_revisados}
-                onChange={(e) => setFormData({ ...formData, productos_revisados: e.target.value })}
-                required
-              />
-            </label>
+      {/* List */}
+      {loading && <p style={{ color: 'var(--muted)' }}>Cargando auditorías…</p>}
+      {!loading && filtered.length === 0 && <p style={{ color: 'var(--muted)', padding: '24px 0' }}>No hay auditorías disponibles.</p>}
 
-            <label>
-              Incidencias Encontradas
-              <input
-                type="number"
-                min="0"
-                value={formData.incidencias}
-                onChange={(e) => setFormData({ ...formData, incidencias: e.target.value })}
-              />
-            </label>
-
-            <label>
-              Calificación
-              <select
-                value={formData.calificacion}
-                onChange={(e) => setFormData({ ...formData, calificacion: e.target.value })}
-              >
-                <option value="">Sin calificación</option>
-                <option value="excelente">Excelente</option>
-                <option value="bueno">Bueno</option>
-                <option value="regular">Regular</option>
-                <option value="malo">Malo</option>
-              </select>
-            </label>
-
-            <label>
-              Observaciones
-              <textarea
-                value={formData.observaciones}
-                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                placeholder="Detalles de la auditoría..."
-              />
-            </label>
-
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Creando...' : 'Crear Auditoría'}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="audits-list">
-        {loading && <p>Cargando auditorías...</p>}
-        {audits.filter(a => !filters.estado || a.estado === filters.estado).length === 0 ? (
-          <p>No hay auditorías disponibles.</p>
-        ) : (
-          audits.filter(a => !filters.estado || a.estado === filters.estado).map((audit) => (
-            <div key={audit.id} className="audit-card">
-              <div className="audit-header">
-                <h4>{audit.Store?.nombre}</h4>
-                <span
-                  className="status-badge"
-                  style={{ backgroundColor: getStateColor(audit.estado) }}
-                >
-                  {audit.estado}
-                </span>
-              </div>
-
-              <div className="audit-info">
-                <p>
-                  <strong>Auditor:</strong> {audit.auditor?.nombre_completo}
-                </p>
-                <p>
-                  <strong>Fecha:</strong> {new Date(audit.fecha_auditoria).toLocaleDateString()}
-                </p>
-                <p>
-                  <strong>Productos Revisados:</strong> {audit.productos_revisados}
-                </p>
-                <p>
-                  <strong>Incidencias:</strong> {audit.incidencias}
-                </p>
-                {audit.calificacion && (
-                  <p>
-                    <strong>Calificación:</strong> {audit.calificacion}
-                  </p>
-                )}
-                {audit.observaciones && (
-                  <p>
-                    <strong>Observaciones:</strong> {audit.observaciones}
-                  </p>
-                )}
-              </div>
-
-              <div className="audit-actions">
-                {audit.estado === 'en_progreso' && isAuditor && audit.auditor_id === user.id && (
-                  <button
-                    onClick={() => handleUpdateStatus(audit.id, 'completada')}
-                    className="btn-small btn-success"
-                  >
-                    Marcar Completada
-                  </button>
-                )}
-
-                {isAdmin && (
-                  <button
-                    onClick={() => handleDeleteAudit(audit.id)}
-                    className="btn-small btn-danger"
-                  >
-                    Eliminar
-                  </button>
-                )}
+      {filtered.map(audit => (
+        <div key={audit.id} className="audit-card">
+          <div className="audit-card-header">
+            <div>
+              <div className="audit-card-title">{audit.Store?.nombre || `Tienda #${audit.tienda_id}`}</div>
+              <div className="audit-card-meta">
+                {new Date(audit.fecha_auditoria).toLocaleDateString()} · Auditor: {audit.auditor?.nombre_completo || 'N/A'}
               </div>
             </div>
-          ))
-        )}
-      </div>
+            <span className={`badge ${STATE_BADGE[audit.estado] || 'badge-muted'}`}>{audit.estado}</span>
+          </div>
+
+          <div className="audit-card-body">
+            <div className="audit-detail"><strong>{audit.productos_revisados}</strong>Productos revisados</div>
+            <div className="audit-detail"><strong>{audit.incidencias}</strong>Incidencias</div>
+            {audit.calificacion && <div className="audit-detail"><strong>{audit.calificacion}</strong>Calificación</div>}
+            {audit.observaciones && <div className="audit-detail" style={{ gridColumn: '1 / -1' }}><strong>Observaciones</strong>{audit.observaciones}</div>}
+          </div>
+
+          <div className="audit-card-actions">
+            {audit.estado === 'en_progreso' && isAuditor && audit.auditor_id === user.id && (
+              <button className="btn btn-success btn-sm" onClick={() => handleUpdateStatus(audit.id, 'completada')}>✓ Marcar completada</button>
+            )}
+            {isAdmin && (
+              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(audit.id)}>Eliminar</button>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

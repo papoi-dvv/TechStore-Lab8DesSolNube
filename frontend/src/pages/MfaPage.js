@@ -6,10 +6,9 @@ function MfaPage({ mfaToken, onSuccess, onBack }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async event => {
-    event.preventDefault();
-    setError('');
-    setLoading(true);
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError(''); setLoading(true);
     try {
       const result = await verifyMfa(mfaToken, code);
       onSuccess(result);
@@ -21,18 +20,41 @@ function MfaPage({ mfaToken, onSuccess, onBack }) {
   };
 
   return (
-    <div className="page-card">
-      <h2>Verificación MFA</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Código de 6 dígitos
-          <input value={code} onChange={e => setCode(e.target.value)} maxLength={6} required />
-        </label>
-        <button type="submit" disabled={loading}>{loading ? 'Verificando...' : 'Confirmar'}</button>
-      </form>
-      {error && <div className="error">{error}</div>}
-      <div className="helper-text">
-        <button className="link-button" onClick={onBack}>Volver</button>
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div className="auth-logo-icon">🔐</div>
+          <div>
+            <div className="auth-logo-text">TechStore</div>
+            <div className="auth-logo-sub">Verificación en dos pasos</div>
+          </div>
+        </div>
+
+        <h2>Verificación MFA</h2>
+        <p className="auth-subtitle">Ingresa el código de 6 dígitos de tu app de autenticación.</p>
+
+        {error && <div className="alert alert-error">⚠ {error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Código de verificación</label>
+            <input
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              maxLength={6}
+              placeholder="000000"
+              style={{ fontSize: '1.4rem', letterSpacing: '0.4em', textAlign: 'center' }}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading} style={{ marginTop: 8 }}>
+            {loading ? 'Verificando...' : '🔓 Confirmar acceso'}
+          </button>
+        </form>
+
+        <p style={{ marginTop: 20, textAlign: 'center' }}>
+          <button className="btn-link" onClick={onBack}>← Volver al inicio de sesión</button>
+        </p>
       </div>
     </div>
   );

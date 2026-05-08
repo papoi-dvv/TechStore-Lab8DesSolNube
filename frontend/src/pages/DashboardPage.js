@@ -3,19 +3,22 @@ import { setupMfa } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
 function DashboardPage({ onNavigate }) {
-  const { user, token, logout, saveSession } = useAuth();
+  const { user, token, saveSession } = useAuth();
   const [secretPayload, setSecretPayload] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const roles = user?.roles || [];
+  const isAdmin   = roles.includes('Administrador');
+  const isGerente = roles.includes('Gerente');
+  const isAuditor = roles.includes('Auditor');
+
   const handleSetupMfa = async () => {
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
       const result = await setupMfa(token);
       setSecretPayload(result);
-      const updatedUser = { ...user, mfa_habilitado: true };
-      saveSession({ token, user: updatedUser });
+      saveSession({ token, user: { ...user, mfa_habilitado: true } });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -23,59 +26,86 @@ function DashboardPage({ onNavigate }) {
     }
   };
 
-  const handleCancelMfaSetup = () => {
+  const handleCancelMfa = () => {
     setSecretPayload(null);
-    const updatedUser = { ...user, mfa_habilitado: false };
-    saveSession({ token, user: updatedUser });
+    saveSession({ token, user: { ...user, mfa_habilitado: false } });
   };
 
+  const navItems = [
+    { key: 'products', icon: '📦', label: 'Inventario',  sub: 'Gestionar productos', show: true },
+    { key: 'roles',    icon: '🛡',  label: 'Roles',       sub: 'Permisos y acceso',   show: isAdmin || isGerente },
+    { key: 'users',    icon: '👥',  label: 'Usuarios',    sub: 'Gestionar cuentas',   show: isAdmin },
+    { key: 'audits',   icon: '📋',  label: 'Auditorías',  sub: 'Control de calidad',  show: isAdmin || isGerente || isAuditor },
+    { key: 'reports',  icon: '📊',  label: 'Reportes',    sub: 'Métricas y análisis', show: isAdmin || isGerente || isAuditor },
+  ].filter(i => i.show);
+
   return (
-    <div className="page-card">
-      <h2>Bienvenido, {user?.nombre_completo}</h2>
-      <p>Tu rol(es): {user?.roles?.join(', ') || 'Sin asignar'}</p>
-      <p>Tienda: {user?.tienda_id || 'No asignada'}</p>
-      <div className="dashboard-buttons">
-        <button onClick={() => onNavigate('products')}>📦 Productos</button>
-        {(user?.roles?.includes('Administrador') || user?.roles?.includes('Gerente')) && (
-          <button onClick={() => onNavigate('roles')}>👤 Roles</button>
-        )}
-        {user?.roles?.includes('Administrador') && (
-          <button onClick={() => onNavigate('users')}>👥 Usuarios</button>
-        )}
-        {(user?.roles?.includes('Auditor') || user?.roles?.includes('Gerente') || user?.roles?.includes('Administrador')) && (
-          <button onClick={() => onNavigate('audits')}>📋 Auditorías</button>
-        )}
-        {(user?.roles?.includes('Auditor') || user?.roles?.includes('Gerente') || user?.roles?.includes('Administrador')) && (
-          <button onClick={() => onNavigate('reports')}>📊 Reportes</button>
-        )}
+    <div>
+      {/* Welcome */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+          Hola, {user?.nombre_completo?.split(' ')[0]} 👋
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+          Sucursal #{user?.tienda_id || '—'} · {roles.join(', ') || 'Sin rol asignado'}
+        </p>
       </div>
-      <div className="mfa-card">
-        <h3>Configuración MFA</h3>
-        <p>Estado: {user?.mfa_habilitado ? 'Activado' : 'No activado'}</p>
-        <button onClick={handleSetupMfa} disabled={user?.mfa_habilitado || loading}>
-          {loading ? 'Configurando...' : user?.mfa_habilitado ? 'MFA activado' : 'Activar MFA'}
-        </button>
-        {secretPayload && (
-          <div className="secret-box">
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
-              <p style={{ margin: 0, fontWeight: 700 }}>Configuración MFA pendiente</p>
-              <button type="button" className="secondary" onClick={handleCancelMfaSetup}>Cancelar activación</button>
+
+      {/* Quick nav */}
+      <div className="dash-nav-grid">
+        {navItems.map(item => (
+          <button key={item.key} className="dash-nav-btn" onClick={() => onNavigate(item.key)}>
+            <span className="dash-nav-btn-icon">{item.icon}</span>
+            <span className="dash-nav-btn-label">{item.label}</span>
+            <span className="dash-nav-btn-sub">{item.sub}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* MFA section */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">🔐 Autenticación de dos factores</div>
+            <div className="card-subtitle">Protege tu cuenta con verificación adicional</div>
+          </div>
+          <span className={`badge ${user?.mfa_habilitado ? 'badge-success' : 'badge-muted'}`}>
+            {user?.mfa_habilitado ? '✓ Activo' : 'Inactivo'}
+          </span>
+        </div>
+
+        {error && <div className="alert alert-error">⚠ {error}</div>}
+
+        {!secretPayload ? (
+          <button
+            className={`btn ${user?.mfa_habilitado ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={handleSetupMfa}
+            disabled={user?.mfa_habilitado || loading}
+          >
+            {loading ? 'Configurando...' : user?.mfa_habilitado ? '✓ MFA ya configurado' : '🔑 Activar MFA'}
+          </button>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <p style={{ color: 'var(--text)', fontWeight: 600, margin: 0 }}>Escanea el código QR con tu app de autenticación</p>
+              <button className="btn btn-secondary btn-sm" onClick={handleCancelMfa}>Cancelar</button>
             </div>
-            <p>Escanea este código en tu app de autenticación (Google Authenticator, Authy, Microsoft Authenticator, etc.):</p>
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code?data=${encodeURIComponent(secretPayload.otpauth_url)}&size=220x220`}
-              alt="QR para MFA"
-            />
-            <p>Si no puedes escanear el QR, copia manualmente la clave secreta:</p>
-            <code>{secretPayload.secret}</code>
-            <p>
-              Cuando termines, cierra sesión y vuelve a iniciar sesión. Después de ingresar tu email y contraseña, se te pedirá el código de 6 dígitos.
+            <div className="mfa-qr-box">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code?data=${encodeURIComponent(secretPayload.otpauth_url)}&size=200x200`}
+                alt="QR MFA"
+              />
+            </div>
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '12px 0 6px' }}>
+              O copia la clave secreta manualmente:
+            </p>
+            <div className="secret-code">{secretPayload.secret}</div>
+            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: 12 }}>
+              Cierra sesión y vuelve a ingresar. Se te pedirá el código de 6 dígitos.
             </p>
           </div>
         )}
-        {error && <div className="error">{error}</div>}
       </div>
-      <button className="secondary" onClick={logout}>Cerrar sesión</button>
     </div>
   );
 }

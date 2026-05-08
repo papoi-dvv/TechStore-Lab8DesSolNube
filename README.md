@@ -20,6 +20,33 @@ TechStore es un sistema de gestión de inventario para una cadena de tiendas de 
 - Auditoría básica de acciones
 - Desbloqueo de usuarios bloqueados por el administrador
 
+## Requisitos previos
+
+### MySQL con XAMPP
+
+Este proyecto requiere una base de datos MySQL activa. Se recomienda usar **XAMPP** para levantarla localmente.
+
+1. Descarga e instala [XAMPP](https://www.apachefriends.org/) si aún no lo tienes.
+2. Abre el **Panel de Control de XAMPP** y arranca el módulo **MySQL** (y Apache si lo necesitas).
+3. Abre **phpMyAdmin** en `http://localhost/phpmyadmin`.
+4. Crea una nueva base de datos con el nombre exacto:
+
+```
+TechStore
+```
+
+> Sequelize creará las tablas automáticamente al iniciar el backend por primera vez gracias a `sync`.
+
+5. Asegúrate de que las credenciales en `backend/.env` coincidan con las de tu instalación de XAMPP (por defecto: usuario `root`, sin contraseña):
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=TechStore
+DB_USER=root
+DB_PASSWORD=
+```
+
 ## Configuración
 
 ### Backend
