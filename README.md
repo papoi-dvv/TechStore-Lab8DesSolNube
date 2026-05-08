@@ -69,10 +69,12 @@ cd backend
 npm run seed
 ```
 
-Esto agrega:
+Esto crea 4 cuentas con todos los perfiles de usuario:
 
-- `admin@techstore.com` / `Admin123!` (Administrador)
-- `gerente@techstore.com` / `Manager123!` (Gerente)
+- **Administrador**: `admin@techstore.com` / `Admin123!`
+- **Gerente de Tienda**: `gerente@techstore.com` / `Manager123!`
+- **Empleado de Ventas**: `empleado@techstore.com` / `Employee123!`
+- **Auditor**: `auditor@techstore.com` / `Auditor123!`
 
 ## Rutas principales
 
@@ -95,3 +97,13 @@ Esto agrega:
 - El proyecto usa `backend/src` para el servidor y modelos.
 - El frontend gestiona sesión con `localStorage` y consume el backend mediante fetch.
 - Asegúrate de tener el backend corriendo en `http://localhost:4000` para que el frontend funcione correctamente.
+
+## Cómo usar MFA
+
+1. Inicia sesión con tu usuario.
+2. En el dashboard, haz clic en `Activar MFA`.
+3. Aparecerá un código QR y una clave secreta.
+4. Escanea el QR con una app de autenticación (Google Authenticator, Authy, Microsoft Authenticator, etc.) o copia la clave manualmente.
+5. Cierra sesión y vuelve a iniciar sesión.
+6. Después de ingresar email y contraseña, el sistema pedirá un código de 6 dígitos.
+7. Introduce el código generado por tu app de autenticación para completar el inicio de sesión.

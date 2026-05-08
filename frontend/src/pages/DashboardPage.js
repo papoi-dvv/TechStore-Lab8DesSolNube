@@ -45,10 +45,16 @@ function DashboardPage({ onNavigate }) {
         </button>
         {secretPayload && (
           <div className="secret-box">
-            <p>Escanea este código en tu app de autenticación:</p>
-            <code>{secretPayload.otpauth_url}</code>
-            <p>Clave secreta:</p>
+            <p>Escanea este código en tu app de autenticación (Google Authenticator, Authy, Microsoft Authenticator, etc.):</p>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code?data=${encodeURIComponent(secretPayload.otpauth_url)}&size=220x220`}
+              alt="QR para MFA"
+            />
+            <p>Si no puedes escanear el QR, copia manualmente la clave secreta:</p>
             <code>{secretPayload.secret}</code>
+            <p>
+              Cuando termines, cierra sesión y vuelve a iniciar sesión. Después de ingresar tu email y contraseña, se te pedirá el código de 6 dígitos.
+            </p>
           </div>
         )}
         {error && <div className="error">{error}</div>}

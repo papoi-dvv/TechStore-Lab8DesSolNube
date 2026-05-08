@@ -160,7 +160,11 @@ async function verifyMfa(req, res, next) {
 
 async function setupMfa(req, res, next) {
   try {
-    const { userId } = req.user;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuario no autenticado.' });
+    }
+
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
