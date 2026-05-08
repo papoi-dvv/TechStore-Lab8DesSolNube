@@ -38,9 +38,28 @@ const Product = sequelize.define('Product', {
     allowNull: false,
     defaultValue: false,
   },
+  estado: {
+    type: DataTypes.ENUM('activo', 'inactivo', 'descontinuado'),
+    allowNull: false,
+    defaultValue: 'activo',
+  },
+  imagen_url: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   creado_por: {
     type: DataTypes.INTEGER.UNSIGNED,
     allowNull: false,
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
   },
 });
 

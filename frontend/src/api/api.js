@@ -48,6 +48,10 @@ function getProducts(token) {
   return request('/products', { token });
 }
 
+function getStores(token) {
+  return request('/stores', { token });
+}
+
 function createProduct(token, payload) {
   return request('/products', { method: 'POST', body: payload, token });
 }
@@ -80,6 +84,55 @@ function unlockUser(token, userId) {
   return request(`/users/${userId}/unlock`, { method: 'PATCH', token });
 }
 
+function updateUser(token, userId, payload) {
+  return request(`/users/${userId}`, { method: 'PUT', body: payload, token });
+}
+
+function updateUserPassword(token, userId, password) {
+  return request(`/users/${userId}/password`, { method: 'PATCH', body: { password }, token });
+}
+
+function activateUser(token, userId) {
+  return request(`/users/${userId}/activate`, { method: 'PATCH', token });
+}
+
+function deactivateUser(token, userId) {
+  return request(`/users/${userId}/deactivate`, { method: 'PATCH', token });
+}
+
+// Audits
+function buildQueryString(params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, value);
+    }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+}
+
+function getAudits(token, params = {}) {
+  const query = buildQueryString(params);
+  return request(`/audits${query}`, { token });
+}
+
+function getAudit(token, id) {
+  return request(`/audits/${id}`, { token });
+}
+
+function createAudit(token, payload) {
+  return request('/audits', { method: 'POST', body: payload, token });
+}
+
+function updateAudit(token, id, payload) {
+  return request(`/audits/${id}`, { method: 'PUT', body: payload, token });
+}
+
+function deleteAudit(token, id) {
+  return request(`/audits/${id}`, { method: 'DELETE', token });
+}
+
 export {
   login,
   verifyMfa,
@@ -88,12 +141,22 @@ export {
   getRoles,
   getUsers,
   getProducts,
+  getStores,
   createProduct,
   updateProduct,
   deleteProduct,
   createRole,
   createUser,
+  updateUser,
+  updateUserPassword,
+  activateUser,
+  deactivateUser,
   assignRole,
   removeRole,
   unlockUser,
+  getAudits,
+  getAudit,
+  createAudit,
+  updateAudit,
+  deleteAudit,
 };

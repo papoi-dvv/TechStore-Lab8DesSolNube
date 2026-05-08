@@ -188,6 +188,74 @@ th {
   gap: 10px;
 }
 
+.roles-page .roles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.roles-page .role-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.roles-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.roles-page .role-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.roles-page .role-card h3 {
+  margin: 0 0 8px;
+}
+
+.roles-page .role-meta {
+  color: #475569;
+  margin: 0;
+}
+
+.roles-page .role-count {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.roles-page .badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.roles-page .badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .roles-page .roles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .vertical-form {
   display: grid;
   gap: 14px;
@@ -197,4 +265,71 @@ th {
   align-items: center;
   display: inline-flex;
   gap: 10px;
+}
+
+/* Modal styles used by ProductsPage edit form */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 560px;
+  max-width: calc(100% - 40px);
+  box-shadow: 0 12px 30px rgba(2,6,23,0.2);
+}
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 600px;
+  max-width: calc(100% - 40px);
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 30px rgba(2,6,23,0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.modal-body {
+  margin-bottom: 16px;
+}
+
+.user-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.user-item:last-child {
+  border-bottom: none;
+}
+
+.role-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }

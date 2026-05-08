@@ -142,9 +142,106 @@ async function unlockUser(req, res, next) {
 
     user.failed_login_attempts = 0;
     user.locked_until = null;
+    user.mfa_failed_attempts = 0;
     await user.save();
 
     res.json({ message: 'Usuario desbloqueado correctamente.', user: { id: user.id, email: user.email, locked_until: user.locked_until, failed_login_attempts: user.failed_login_attempts } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deactivateUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    user.activo = false;
+    await user.save();
+
+    res.json({ message: 'Usuario desactivado correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function activateUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    user.activo = true;
+    user.failed_login_attempts = 0;
+    user.locked_until = null;
+    await user.save();
+
+    res.json({ message: 'Usuario activado correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { nombre_completo, tienda_id } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    if (nombre_completo !== undefined) user.nombre_completo = nombre_completo;
+    if (tienda_id !== undefined) user.tienda_id = tienda_id;
+
+    await user.save();
+
+    const updatedUser = await User.findByPk(id, {
+      include: [
+        { model: Store, attributes: ['id', 'nombre', 'ubicacion'] },
+        {
+          model: UserRole,
+          include: [{ model: Role, attributes: ['id', 'nombre'] }],
+        },
+      ],
+      attributes: { exclude: ['password', 'mfa_secret'] },
+    });
+
+    res.json({ message: 'Usuario actualizado correctamente.', user: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateUserPassword(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'La contraseña es obligatoria.' });
+    }
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({ error: 'La contraseña no cumple los requisitos de seguridad.' });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    user.password = hashed;
+    await user.save();
+
+    res.json({ message: 'Contraseña actualizada correctamente.' });
   } catch (error) {
     next(error);
   }
@@ -157,4 +254,8 @@ module.exports = {
   assignRole,
   removeRole,
   unlockUser,
+  deactivateUser,
+  activateUser,
+  updateUser,
+  updateUserPassword,
 };

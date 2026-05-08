@@ -70,13 +70,27 @@ async function updateProduct(req, res, next) {
       return res.status(403).json({ error: 'No tienes permiso para actualizar este producto.' });
     }
 
+    const userRoles = req.user.roles || [];
     const changedFields = [];
-    ['nombre', 'descripcion', 'precio', 'stock', 'categoria', 'es_premium', 'tienda_id'].forEach(field => {
-      if (updates[field] !== undefined) {
-        product[field] = updates[field];
-        changedFields.push(field);
-      }
-    });
+    
+    // Admin puede actualizar todos los campos
+    if (userRoles.includes('Administrador')) {
+      const allowedFields = ['nombre', 'descripcion', 'precio', 'stock', 'categoria', 'es_premium', 'tienda_id', 'estado', 'imagen_url'];
+      allowedFields.forEach(field => {
+        if (updates[field] !== undefined) {
+          product[field] = updates[field];
+          changedFields.push(field);
+        }
+      });
+    } else {
+      // Gerente y Empleado tienen restricciones
+      ['nombre', 'descripcion', 'precio', 'stock', 'categoria', 'es_premium', 'tienda_id', 'estado', 'imagen_url'].forEach(field => {
+        if (updates[field] !== undefined) {
+          product[field] = updates[field];
+          changedFields.push(field);
+        }
+      });
+    }
 
     if (changedFields.length === 0) {
       return res.status(400).json({ error: 'No se encontraron campos válidos para actualizar.' });

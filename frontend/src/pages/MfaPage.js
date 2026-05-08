@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { verifyMfa } from '../api/api';
 
 function MfaPage({ mfaToken, onSuccess, onBack }) {

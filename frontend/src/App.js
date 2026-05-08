@@ -7,6 +7,8 @@ import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import RolesPage from './pages/RolesPage';
 import UsersPage from './pages/UsersPage';
+import AuditsPage from './pages/AuditsPage';
+import ReportsPage from './pages/ReportsPage';
 import './App.css';
 
 function AppContent() {
@@ -15,12 +17,13 @@ function AppContent() {
   const [mfaToken, setMfaToken] = useState(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && view === 'login') {
       setView('dashboard');
-    } else if (['dashboard', 'products', 'roles', 'users'].includes(view)) {
+    }
+    if (!isAuthenticated && ['dashboard', 'products', 'roles', 'users', 'audits', 'reports'].includes(view)) {
       setView('login');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, view]);
 
   const handleMfaNeeded = token => {
     setMfaToken(token);
@@ -50,6 +53,8 @@ function AppContent() {
         {view === 'products' && <ProductsPage {...pageProps} />}
         {view === 'roles' && <RolesPage {...pageProps} />}
         {view === 'users' && <UsersPage {...pageProps} />}
+        {view === 'audits' && <AuditsPage {...pageProps} />}
+        {view === 'reports' && <ReportsPage {...pageProps} />}
       </main>
     </div>
   );

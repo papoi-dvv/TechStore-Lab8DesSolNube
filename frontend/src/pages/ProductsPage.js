@@ -1,16 +1,26 @@
 import { useEffect, useState } from 'react';
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../api/api';
+import { getProducts, createProduct, updateProduct, deleteProduct, getStores } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
 function ProductsPage({ onNavigate }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [products, setProducts] = useState([]);
+  const [stores, setStores] = useState([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [form, setForm] = useState({ nombre: '', descripcion: '', precio: '', stock: '', categoria: '', tienda_id: '1', es_premium: false });
+  const [form, setForm] = useState({ nombre: '', descripcion: '', precio: '', stock: '', categoria: '', tienda_id: '', es_premium: false });
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+
+  const userRoles = user?.roles || [];
+  const isAdmin = userRoles.includes('Administrador');
+  const isGerente = userRoles.includes('Gerente');
+  const isEmpleado = userRoles.includes('Empleado');
 
   useEffect(() => {
     loadProducts();
+    loadStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProducts = async () => {
@@ -20,6 +30,19 @@ function ProductsPage({ onNavigate }) {
       setProducts(data.products || []);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const loadStores = async () => {
+    try {
+      const data = await getStores(token);
+      setStores(data.stores || []);
+      // if tienda_id not selected, set default to first store
+      if (!form.tienda_id && data.stores && data.stores.length > 0) {
+        setForm(f => ({ ...f, tienda_id: String(data.stores[0].id) }));
+      }
+    } catch (err) {
+      // non-fatal
     }
   };
 
@@ -39,6 +62,37 @@ function ProductsPage({ onNavigate }) {
       });
       setMessage('Producto creado correctamente.');
       setForm({ nombre: '', descripcion: '', precio: '', stock: '', categoria: '', tienda_id: '1', es_premium: false });
+      loadProducts();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const openEdit = (product) => {
+    setEditForm({ ...product });
+    setEditing(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    try {
+      const payload = {
+        nombre: editForm.nombre,
+        descripcion: editForm.descripcion,
+        precio: Number(editForm.precio),
+        stock: Number(editForm.stock),
+        categoria: editForm.categoria,
+        tienda_id: Number(editForm.tienda_id),
+        es_premium: !!editForm.es_premium,
+        estado: editForm.estado,
+        imagen_url: editForm.imagen_url || null,
+      };
+      await updateProduct(token, editForm.id, payload);
+      setMessage('Producto actualizado correctamente.');
+      setEditing(false);
+      setEditForm(null);
       loadProducts();
     } catch (err) {
       setError(err.message);
@@ -134,19 +188,74 @@ function ProductsPage({ onNavigate }) {
               <tr key={product.id}>
                 <td>{product.id}</td>
                 <td>{product.nombre}</td>
-                <td>{product.tienda_id}</td>
+                <td>{(stores.find(s => s.id === product.tienda_id) || {}).nombre || product.tienda_id}</td>
                 <td>{product.precio}</td>
                 <td>{product.stock}</td>
                 <td>{product.es_premium ? 'Sí' : 'No'}</td>
                 <td>
-                  <button onClick={() => handleUpdate(product)}>Actualizar stock</button>
-                  <button className="danger" onClick={() => handleDelete(product)}>Eliminar</button>
+                  {(isAdmin || isGerente) && <button onClick={() => openEdit(product)}>Editar</button>}
+                  {(isAdmin || isGerente || isEmpleado) && <button onClick={() => handleUpdate(product)}>Actualizar stock</button>}
+                  {isAdmin && <button className="danger" onClick={() => handleDelete(product)}>Eliminar</button>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editing && editForm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Editar producto #{editForm.id}</h3>
+            <form onSubmit={handleEditSubmit} className="vertical-form">
+              <label>
+                Nombre
+                <input value={editForm.nombre} onChange={e => setEditForm({ ...editForm, nombre: e.target.value })} required />
+              </label>
+              <label>
+                Descripción
+                <input value={editForm.descripcion || ''} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} />
+              </label>
+              <label>
+                Precio
+                <input value={editForm.precio} onChange={e => setEditForm({ ...editForm, precio: e.target.value })} type="number" step="0.01" required />
+              </label>
+              <label>
+                Stock
+                <input value={editForm.stock} onChange={e => setEditForm({ ...editForm, stock: e.target.value })} type="number" required />
+              </label>
+              <label>
+                Categoría
+                <input value={editForm.categoria || ''} onChange={e => setEditForm({ ...editForm, categoria: e.target.value })} />
+              </label>
+              <label>
+                Tienda
+                <select value={String(editForm.tienda_id)} onChange={e => setEditForm({ ...editForm, tienda_id: e.target.value })}>
+                  {stores.map(s => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Estado
+                <select value={editForm.estado || 'activo'} onChange={e => setEditForm({ ...editForm, estado: e.target.value })}>
+                  <option value="activo">activo</option>
+                  <option value="inactivo">inactivo</option>
+                  <option value="descontinuado">descontinuado</option>
+                </select>
+              </label>
+              <label>
+                Imagen URL
+                <input value={editForm.imagen_url || ''} onChange={e => setEditForm({ ...editForm, imagen_url: e.target.value })} />
+              </label>
+              <div className="modal-actions">
+                <button type="submit">Guardar</button>
+                <button type="button" onClick={() => { setEditing(false); setEditForm(null); }}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

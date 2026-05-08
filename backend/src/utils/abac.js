@@ -45,13 +45,7 @@ function canUpdateProduct(user, existingProduct, updates) {
 }
 
 function canDeleteProduct(user, product) {
-  if (hasRole(user, 'Administrador')) {
-    return true;
-  }
-  if (hasRole(user, 'Gerente')) {
-    return product.tienda_id === user.tienda_id && !product.es_premium;
-  }
-  return false;
+  return hasRole(user, 'Administrador');
 }
 
 module.exports = {

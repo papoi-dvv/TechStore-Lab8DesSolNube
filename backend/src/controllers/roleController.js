@@ -1,9 +1,21 @@
-const { Role, UserRole } = require('../models');
+const { Role, User } = require('../models');
 
 async function getRoles(req, res, next) {
   try {
-    const roles = await Role.findAll({ order: [['id', 'ASC']] });
-    res.json({ roles });
+    const roles = await Role.findAll({
+      include: [{ model: User, attributes: ['id'] }],
+      order: [['id', 'ASC']],
+    });
+
+    const enhancedRoles = roles.map(role => {
+      const roleData = role.toJSON();
+      return {
+        ...roleData,
+        userCount: (roleData.Users || []).length,
+      };
+    });
+
+    res.json({ roles: enhancedRoles });
   } catch (error) {
     next(error);
   }
